@@ -5,6 +5,7 @@ abandonment, a waitlist with automatic re-assignment on cancellation, QR-code ti
 and a mock "Scan to Pay" checkout.
 
 **Live app/Hosted Application URL:** https://ticket-booking-system-delta-six.vercel.app
+(It will take 5-10 seconds to get load please kindly wait for 5 to 10 seconds)
 
 - **Backend:** Node.js, Express, PostgreSQL (Neon, via `pg`), JWT auth
 - **Frontend:** React 18 + Vite
