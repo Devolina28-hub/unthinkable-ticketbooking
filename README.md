@@ -4,7 +4,7 @@ Full-stack ticket booking app: visual seat maps, TTL seat holds that auto-releas
 abandonment, a waitlist with automatic re-assignment on cancellation, QR-code tickets,
 and a mock "Scan to Pay" checkout.
 
-**Live app:** https://ticket-booking-system-delta-six.vercel.app
+**Live app/Hosted Application URL:** https://ticket-booking-system-delta-six.vercel.app
 
 - **Backend:** Node.js, Express, PostgreSQL (Neon, via `pg`), JWT auth
 - **Frontend:** React 18 + Vite
