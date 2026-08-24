@@ -19,7 +19,9 @@ Please wait 15–20 seconds for the page to load. If it doesn’t load, kindly r
 1. **Use your own email to receive anything.** Seeded demo accounts
    (`customer@example.com` etc.) aren't real inboxes. Register at `/register/customer`
    with your real email, then book from that account. If `BREVO_API_KEY` isn't set,
-   email sending is skipped entirely (logged, not silent).
+   email sending is skipped entirely (logged, not silent). ⚠️ **IMPORTANT — read this before assuming email is "set up":**
+> An API key alone is **not enough** to send real booking confirmations. Until you
+> **verify your own domain**
 2. **Payment is a mock, not a real gateway.** "Continue to payment" shows a QR linking
    to `/pay/:paymentRef` — open it (or scan it) and tap **Yes, pay now** / **No, cancel**.
    Yes waits ~5s (simulated processing) before confirming the booking + emailing the
@@ -58,6 +60,9 @@ seed-only, no public sign-up). `npm run build` for production; point `src/api.js
 `BASE` at your deployed backend URL.
 
 ### Real email delivery (Brevo API key — not SMTP)
+⚠️ **IMPORTANT — read this before assuming email is "set up":**
+> An API key alone is **not enough** to send real booking confirmations. Until you
+> **verify your own domain**
 
 Emails send via Brevo's HTTP API (`api.brevo.com/v3/smtp/email`), not SMTP — most free
 hosts block SMTP ports, but HTTPS (443) always works.
@@ -77,6 +82,53 @@ hosts block SMTP ports, but HTTPS (443) always works.
 
 If `BREVO_API_KEY` is blank, email sending is skipped (with a log warning) and the rest
 of the booking flow still works.
+
+Services such as Brevo, Resend, Mailjet, and similar email platforms generally require you to verify a domain before you can reliably send emails to arbitrary customers or registered users. Their free/trial or sandbox modes may allow limited testing, but they are not intended for sending production emails to everyone.
+
+Domain verification is a one-time setup where you prove ownership of the domain by adding the required DNS records. Without this verification, email delivery can be restricted to specific test or account addresses, meaning booking confirmations may not reach real customers.
+
+So, switching from Brevo to Resend or Mailjet does not necessarily solve the problem—they also have domain-verification requirements for production sending.
+
+Since I currently do not have a personal domain, I would need either:
+
+A verified domain for one of these email services, or
+An email service that genuinely supports production transactional emails without requiring domain ownership/verification.
+
+Therefore, the issue is not specifically with Brevo; domain verification is a standard requirement across most reputable transactional email providers to prevent spam and protect email deliverability.
+Have attached other alternatives, but domain is required
+
+Resend will silently refuse to
+> deliver to anyone except the exact email address you signed up to Resend with — not
+> "registered users," not new customers, not anyone else, no exceptions. There is no
+> per-user registration step and none is needed: domain verification is a **one-time**
+> setup in the Resend dashboard, and once done, every current and future customer's
+> confirmation email works automatically with zero extra code or configuration.
+> **Skipping this step is the #1 reason booking confirmations will silently fail to
+> reach real customers.**
+
+Emails send via Resend's HTTP API (`api.resend.com/emails`), not SMTP — most free
+hosts (including Render) block SMTP ports, but HTTPS (443) always works.
+
+1. Sign up free at resend.com — no card required.
+2. **API Keys → Create API Key** → permission "Sending access" → this is `RESEND_API_KEY`.
+3. **Domains → Add Domain** → add the SPF/DKIM/DMARC records it gives you at your DNS
+   provider → wait for it to show "Verified" (usually a few minutes, occasionally up to
+   an hour). **Required before any real customer will receive a confirmation email** —
+   put a verified address in `SMTP_FROM`, e.g. `"Encore Tickets <no-reply@yourdomain.com>"`.
+   - **No domain yet?** Leave `SMTP_FROM` unset and it falls back to Resend's
+     `onboarding@resend.dev` sandbox sender — but Resend will only deliver those to the
+     email address you signed up to Resend with, not to real customers. Fine for testing
+     the booking flow end-to-end; not fine for production.
+4. Restart backend — startup log shows `Resend API key OK` (plus whether a verified
+   domain was found) or the exact failure reason.
+5. Set `FRONTEND_URL` to your real deployed frontend URL — it's embedded in QR codes and
+   waitlist-offer email links; left as `localhost` it only works on your machine.
+
+If `RESEND_API_KEY` is blank, email sending is skipped (with a log warning) and the rest
+of the booking flow still works.
+
+---
+
 
 ---
 
