@@ -18,10 +18,8 @@ Please wait 15–20 seconds for the page to load. If it doesn’t load, kindly r
 
 1. **Use your own email to receive anything.** Seeded demo accounts
    (`customer@example.com` etc.) aren't real inboxes. Register at `/register/customer`
-   with your real email, then book from that account. If `BREVO_API_KEY` isn't set,
-   email sending is skipped entirely (logged, not silent). ⚠️ **IMPORTANT — read this before assuming email is "set up":**
-> An API key alone is **not enough** to send real booking confirmations. Until you
-> **verify your own domain**
+   with your real email, then book from that account. **Important to do**  When you receive the email, please check your Spam/Junk folder first. If you find it there, mark it as ‘Not Spam’ so that future emails from us are delivered to your inbox.
+   
 2. **Payment is a mock, not a real gateway.** "Continue to payment" shows a QR linking
    to `/pay/:paymentRef` — open it (or scan it) and tap **Yes, pay now** / **No, cancel**.
    Yes waits ~5s (simulated processing) before confirming the booking + emailing the
@@ -59,73 +57,40 @@ Three login portals: `/login/customer`, `/login/organiser`, `/login/admin` (admi
 seed-only, no public sign-up). `npm run build` for production; point `src/api.js`'s
 `BASE` at your deployed backend URL.
 
-### Real email delivery (Brevo API key — not SMTP)
-⚠️ **IMPORTANT — read this before assuming email is "set up":**
-> An API key alone is **not enough** to send real booking confirmations. Until you
-> **verify your own domain**
 
-Emails send via Brevo's HTTP API (`api.brevo.com/v3/smtp/email`), not SMTP — most free
-hosts block SMTP ports, but HTTPS (443) always works.
+### Real email delivery (EmailJS — sends via your own Gmail, no domain needed)
 
-1. Sign up free at brevo.com.
-2. **Settings → SMTP & API → API Keys** → generate a key → this is `BREVO_API_KEY`.
-3. **Settings → Senders, Domains & Dedicated IPs → Senders → Add a sender** → verify it
-   via the email Brevo sends. Mandatory — unverified senders get rejected. Put this
-   address in `SMTP_FROM` (name kept from the old SMTP setup, but it's just the "from"
-   address used with the API now).
-4. **Settings → Security → Authorized IPs** → activate/authorize both keys listed there
-   so your deployed backend's requests aren't blocked. Authorize all IPs if unsure, then
-   tighten later.
-5. Restart backend — startup log shows `Brevo API key OK` or the exact failure reason.
-6. Set `FRONTEND_URL` to your real deployed frontend URL — it's embedded in QR codes and
+Emails send via EmailJS's REST API (`api.emailjs.com/api/v1.0/email/send`), which
+relays through a real Gmail account you connect via OAuth — not SMTP (most free hosts,
+including Render, block SMTP ports; HTTPS/443 always works) and not a transactional
+provider requiring domain verification. Because it authenticates as an actual Gmail
+account rather than an unverified sending domain, it can deliver to **any real
+recipient from day one** — no waiting, no per-user setup. Trade-off: the free tier caps
+at **200 emails/month**, and doesn't support real file attachments (not an issue here —
+the QR code is sent as an inline base64 `<img>` instead, which free tier fully supports).
+
+1. Sign up free at emailjs.com — no card required.
+2. **Email Services → Add New Service → Gmail → Connect Account** → sign in with the
+   Gmail you want to send from (OAuth popup, no code needed) → this is `EMAILJS_SERVICE_ID`.
+3. **Email Templates → Create New Template.** EmailJS sends pre-built templates with
+   named placeholders, not raw HTML per request — so this template should contain
+   exactly: Subject field `{{subject}}`, To Email field `{{to_email}}`, and in the
+   Content box (switch to the code/HTML editor, delete the default starter content)
+   just `{{message_html}}` and nothing else. Save → this is `EMAILJS_TEMPLATE_ID`.
+4. **Account → Security → turn ON "Allow API calls from non-browser applications."**
+   Easy to miss — EmailJS blocks server-side requests by default since it's built for
+   frontend use; skipping this gets a 403 on every send from this backend.
+5. **Account → API Keys** → `EMAILJS_PUBLIC_KEY`. **Account → Security** → `EMAILJS_PRIVATE_KEY`.
+6. Restart backend — startup log shows `EmailJS credentials present` or exactly which
+   variable is missing.
+7. Set `FRONTEND_URL` to your real deployed frontend URL — it's embedded in QR codes and
    waitlist-offer email links; left as `localhost` it only works on your machine.
 
-If `BREVO_API_KEY` is blank, email sending is skipped (with a log warning) and the rest
-of the booking flow still works.
+If any of the four `EMAILJS_*` variables are blank, email sending is skipped (with a
+log warning) and the rest of the booking flow still works.
 
-Services such as Brevo, Resend, Mailjet, and similar email platforms generally require you to verify a domain before you can reliably send emails to arbitrary customers or registered users. Their free/trial or sandbox modes may allow limited testing, but they are not intended for sending production emails to everyone.
-
-Domain verification is a one-time setup where you prove ownership of the domain by adding the required DNS records. Without this verification, email delivery can be restricted to specific test or account addresses, meaning booking confirmations may not reach real customers.
-
-So, switching from Brevo to Resend or Mailjet does not necessarily solve the problem—they also have domain-verification requirements for production sending.
-
-Since I currently do not have a personal domain, I would need either:
-
-A verified domain for one of these email services, or
-An email service that genuinely supports production transactional emails without requiring domain ownership/verification.
-
-Therefore, the issue is not specifically with Brevo; domain verification is a standard requirement across most reputable transactional email providers to prevent spam and protect email deliverability.
-Have attached other alternatives, but domain is required
-
-Resend will silently refuse to
-> deliver to anyone except the exact email address you signed up to Resend with — not
-> "registered users," not new customers, not anyone else, no exceptions. There is no
-> per-user registration step and none is needed: domain verification is a **one-time**
-> setup in the Resend dashboard, and once done, every current and future customer's
-> confirmation email works automatically with zero extra code or configuration.
-> **Skipping this step is the #1 reason booking confirmations will silently fail to
-> reach real customers.**
-
-Emails send via Resend's HTTP API (`api.resend.com/emails`), not SMTP — most free
-hosts (including Render) block SMTP ports, but HTTPS (443) always works.
-
-1. Sign up free at resend.com — no card required.
-2. **API Keys → Create API Key** → permission "Sending access" → this is `RESEND_API_KEY`.
-3. **Domains → Add Domain** → add the SPF/DKIM/DMARC records it gives you at your DNS
-   provider → wait for it to show "Verified" (usually a few minutes, occasionally up to
-   an hour). **Required before any real customer will receive a confirmation email** —
-   put a verified address in `SMTP_FROM`, e.g. `"Encore Tickets <no-reply@yourdomain.com>"`.
-   - **No domain yet?** Leave `SMTP_FROM` unset and it falls back to Resend's
-     `onboarding@resend.dev` sandbox sender — but Resend will only deliver those to the
-     email address you signed up to Resend with, not to real customers. Fine for testing
-     the booking flow end-to-end; not fine for production.
-4. Restart backend — startup log shows `Resend API key OK` (plus whether a verified
-   domain was found) or the exact failure reason.
-5. Set `FRONTEND_URL` to your real deployed frontend URL — it's embedded in QR codes and
-   waitlist-offer email links; left as `localhost` it only works on your machine.
-
-If `RESEND_API_KEY` is blank, email sending is skipped (with a log warning) and the rest
-of the booking flow still works.
+**Watch the 200/month cap** — startup log won't warn you as you approach it. If bookings
+pick up, EmailJS's Personal plan ($9/mo) raises the limit and adds attachment support.
 
 ---
 
@@ -146,6 +111,26 @@ of the booking flow still works.
 | `HOLD_SWEEPER_INTERVAL_SECONDS` | Background sweeper frequency | `30` |
 | `BREVO_API_KEY` | Brevo email API key | *(blank → email skipped)* |
 | `SMTP_FROM` | "From" name/address for Brevo API | `"Encore Tickets <no-reply@yourdomain.com>"` |
+| `FRONTEND_URL` | Used in QR codes + offer email links | `http://localhost:5173` |
+
+---
+
+## 2. Environment variables
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `PORT` | API port | `4000` |
+| `JWT_SECRET` | Auth token signing secret | *(change in production)* |
+| `JWT_EXPIRES_IN` | Token lifetime | `7d` |
+| `DATABASE_URL` | Neon Postgres connection string | *(required)* |
+| `SEAT_HOLD_TTL_MINUTES` | Seat hold duration before auto-release | `10` |
+| `WAITLIST_OFFER_TTL_MINUTES` | Waitlist offer validity | `15` |
+| `PAYMENT_QR_TTL_MINUTES` | Mock payment session validity | `10` |
+| `HOLD_SWEEPER_INTERVAL_SECONDS` | Background sweeper frequency | `30` |
+| `EMAILJS_SERVICE_ID` | EmailJS connected Gmail service | *(blank → email skipped)* |
+| `EMAILJS_TEMPLATE_ID` | EmailJS template (single `{{message_html}}` field) | *(blank → email skipped)* |
+| `EMAILJS_PUBLIC_KEY` | EmailJS account public key | *(blank → email skipped)* |
+| `EMAILJS_PRIVATE_KEY` | EmailJS account private key (strict mode) | *(blank → email skipped)* |
 | `FRONTEND_URL` | Used in QR codes + offer email links | `http://localhost:5173` |
 
 ---
@@ -233,7 +218,7 @@ No real gateway — no Stripe/Razorpay key anywhere in the code, no card form.
   URL** or QR codes will only work on your own machine.
 - `/ticket/:bookingRef` (public, no login — venue staff scanning aren't logged in) calls
   `GET /api/bookings/verify/:bookingRef` and shows: ✅ valid, ⛔ cancelled, or ❓ not found.
-- Confirmation emails embed the QR as a CID attachment, sent via Brevo's API (see §1).
+- Confirmation emails embed the QR as an inline base64 image, sent via EmailJS (see §1).
 
 ---
 
@@ -278,7 +263,7 @@ backend/src/
     holdSweeper.js                TTL release + offer expiry cron
     waitlistService.js            FIFO auto-assignment
     qr.js                          QR generation
-    email.js                       Brevo HTTP API
+    email.js                       EmailJS HTTP API
   server.js
 frontend/src/
   pages/                          Events, EventSeatMap, Login, Register, PayConfirm,
@@ -290,8 +275,8 @@ frontend/src/
 ## 11. Deploying
 
 - **DB:** Neon (free) → `DATABASE_URL` in your host's env vars. Persists across restarts.
-- **Backend:** Render/Railway/Fly.io → set `DATABASE_URL`, `JWT_SECRET`, `BREVO_API_KEY`,
-  `SMTP_FROM`, `FRONTEND_URL`.
+- **Backend:** Render/Railway/Fly.io → set `DATABASE_URL`, `JWT_SECRET`, `EMAILJS_SERVICE_ID`,
+  `EMAILJS_TEMPLATE_ID`, `EMAILJS_PUBLIC_KEY`, `EMAILJS_PRIVATE_KEY`, `FRONTEND_URL`.
 - **Frontend:** `npm run build` → deploy `dist/` to Vercel/Netlify → point `src/api.js`'s
   `BASE` at your backend URL.
 
